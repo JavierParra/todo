@@ -1,0 +1,15 @@
+version: '2'
+
+services:
+  database:
+    image: postgres
+    ports:
+      - 5433:5432
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+  app:
+    build: ./src
+    ports:
+      - 8000:8000
+    volumes:
+      - ./src:/usr/src
