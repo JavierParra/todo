@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"time"
@@ -13,6 +12,7 @@ import (
 	// "time"
 	"encoding/json"
 	"errors"
+	"server/apiServer"
 )
 
 type Todo struct {
@@ -161,10 +161,9 @@ func sendError(writer http.ResponseWriter, status int, error ApiError) {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	http.HandleFunc("/todos", create)
 	address := "0.0.0.0:8000"
-	fmt.Printf("Servng in %s \n", address)
-
-	log.Fatal(http.ListenAndServe(address, nil))
+	server := apiServer.NewServer()
+	server.Route("/todos", &apiServer.RouteMethods{POST: true}, create)
+	server.Route("/todos", &apiServer.RouteMethods{GET: true}, handler)
+	server.Serve(address)
 }

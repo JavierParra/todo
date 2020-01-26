@@ -1,8 +1,18 @@
 FROM golang
-RUN mkdir -p /go/src
-ADD src/ /go/src
 RUN go get github.com/nu7hatch/gouuid
-WORKDIR /app
-RUN go build -o main /go/src/server.go
+RUN go get github.com/githubnemo/CompileDaemon
 
-CMD ["/app/main"]
+ENV ROOT /app
+ENV SRCPATH ${ROOT}/src/server
+ENV GOPATH "${GOPATH}:${ROOT}"
+
+RUN echo $GOPATH
+RUN mkdir -p ${SRCPATH}
+ADD src ${SRCPATH}
+WORKDIR ${ROOT}
+# RUN go build -o server /go/src/server.go
+
+# CMD ["/app/server"]
+CMD ["sh",  "-cx", \
+	"CompileDaemon -verbose -directory=$SRCPATH -build=\"go build -o ${ROOT} \" -color -command=./server" \
+]
