@@ -1,0 +1,31 @@
+# https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+[*]
+# Unix style line endings
+end_of_line = lf
+# Don't insert newline at the end of the file
+insert_final_newline = false
+# UTF-8 please
+charset = utf-8
+# Tabs rule, spaces drool
+indent_style = tab
+# Don't leave spaces hanging
+trim_trailing_whitespace = true
+
+# A tab is visually represented by 2 spaces
+# I know that setting this defeats the purpose
+# of using tabs but it's here so github does
+# not display each tab as 8 spaces.
+# I recommend configuring your editor to ignore
+# this setting (why wouldn't you?).
+# For vim:
+# `let g:EditorConfig_disable_rules = ['tab_width']`
+tab_width = 2
+
+# 4 space indentation for python files.
+[*.py]
+indent_style = space
+indent_size = 4
