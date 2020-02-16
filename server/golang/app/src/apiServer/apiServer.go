@@ -27,34 +27,36 @@ func NewFullMethods () *RouteMethods {
 	return &RouteMethods{true, true, true, true, true, true, true, true, true}
 }
 
-type Handler struct {
-	path string
-	methods *RouteMethods
-	handler http.HandlerFunc
-}
+type HandlerFunc func (server *Server, response *Response, r *Request)
 
 type Server struct {
-	registry map[string] map[string] http.HandlerFunc
+	registry map[string] map[string] HandlerFunc
 }
 
 func (server *Server) routerHandlerFactory (path string) http.HandlerFunc {
-	return func (writer http.ResponseWriter, request *http.Request) {
-		method := request.Method
+	return func (writer http.ResponseWriter, req *http.Request) {
+		method := req.Method
 		handler := server.registry[path][method]
+		response := Response{ writer: writer }
+		request := Request{ request: req }
 
 		if handler == nil {
-			writer.WriteHeader(http.StatusMethodNotAllowed)
-			writer.Write([]byte("405 method not allowed"))
+			response.SendWithStatus(&ApiError{
+				"BAD_METHOD",
+				fmt.Sprintf("Method %s not allowed", method),
+				struct{ Method string `json:"method"` }{ method },
+			}, http.StatusMethodNotAllowed)
 			return
 		}
 
-		handler(writer, request)
+		handler(server, &response, &request)
 	}
 }
 
-func (server *Server) registerRoute (path string, methods *RouteMethods, handler http.HandlerFunc) {
+func (server *Server) registerRoute (path string, methods *RouteMethods, handler HandlerFunc) {
 	if server.registry[path] == nil {
-		server.registry[path] = make(map[string] http.HandlerFunc, 0)
+		server.registry[path] = make(map[string] HandlerFunc, 0)
+		// Registers function handler for path in go's http server.
 		http.HandleFunc(path, server.routerHandlerFactory(path))
 	}
 
@@ -79,14 +81,14 @@ func (server *Server) registerRoute (path string, methods *RouteMethods, handler
 
 // Route registers a function that shall respond to specific methods in a
 // specific path. The path is parsed in the same way as net/http.
-func (server *Server) Route (path string, methods *RouteMethods, handler http.HandlerFunc) bool {
+func (server *Server) Route (path string, methods *RouteMethods, handler HandlerFunc) bool {
 	server.registerRoute(path, methods, handler)
 	return true
 }
 
 // RouteAll registers a function that shall respondo to all methods in a
 // specific path. The path is parsed in the same way as net/http.
-func (server *Server) RouteAll (path string, handler http.HandlerFunc) bool {
+func (server *Server) RouteAll (path string, handler HandlerFunc) bool {
 	server.registerRoute(path, NewFullMethods(), handler)
 	return true
 }
@@ -97,6 +99,6 @@ func (server *Server) Serve (address string) {
 }
 
 func NewServer () (Server) {
-	server := Server{registry: make(map[string] map[string] http.HandlerFunc, 0)}
+	server := Server{registry: make(map[string] map[string] HandlerFunc, 0)}
 	return server
 }

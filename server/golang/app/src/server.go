@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"time"
@@ -72,45 +71,34 @@ func (store *Store) add (todo *Todo, idChan chan string, errorChan chan error) {
 	idChan <- id
 }
 
-func handler(writer http.ResponseWriter, request *http.Request) {
+func handler(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
 	type List struct {
 		Result []*Todo `json:"todos"`
 	}
 
 	result := List{values(collection.Collection)}
 
-	res, _ := json.Marshal(result)
-	writer.Header().Add("Content-type", "application/json")
-	writer.Write(res)
+	response.Send(result)
 }
 
-func create(writer http.ResponseWriter, request *http.Request) {
-	if (request.Method != http.MethodPost) {
-		sendError(writer, http.StatusMethodNotAllowed, ApiError{"BAD_METHOD", "Method not allowd"})
-		return
-	}
-
-	body, err := ioutil.ReadAll(request.Body)
-
-	if err != nil {
-		fmt.Println(err)
-		sendError(writer, http.StatusInternalServerError, ApiError{"INTERNAL", "Internal server error"})
-		return
-	}
-
+func create(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
 	var todo Todo
-	err = json.Unmarshal(body, &todo)
+	err := request.ReadInto(&todo)
+
+	if (request.Method() != http.MethodPost) {
+		return
+	}
 
 	if err != nil {
 		fmt.Println(err)
-		sendError(writer, http.StatusBadRequest, ApiError{"VALIDATION_ERROR", err.Error()})
+		response.SendWithStatus(&ApiError{Error: "VALIDATION_ERROR", Message: err.Error()}, http.StatusBadRequest)
 		return
 	}
 
 	todo.Created = time.Now().Unix()
 
 	if todo.Name == "" {
-		sendError(writer, http.StatusBadRequest, ApiError{"VALIDATION_ERROR", "name is required"})
+		response.SendWithStatus(&ApiError{Error: "VALIDATION_ERROR", Message: "name is required"}, http.StatusBadRequest)
 		return
 	}
 
@@ -121,16 +109,13 @@ func create(writer http.ResponseWriter, request *http.Request) {
 
 	select {
 		case <- idChan:
-			sendTodo(writer, &todo)
+			response.Send(&todo)
 		case err := <- errorChan:
-			sendError(writer, 503, ApiError{"ERROR_RANDOM", err.Error()})
+			response.SendWithStatus(&ApiError{Error: "ERROR_RANDOM", Message: err.Error()}, 503)
 	}
 }
 
-type ApiError struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-}
+type ApiError = apiServer.ApiError
 
 func sendTodo(writer http.ResponseWriter, todo *Todo) {
 	body, err := json.Marshal(todo)
