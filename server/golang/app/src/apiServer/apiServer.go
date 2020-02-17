@@ -31,6 +31,7 @@ type HandlerFunc func (server *Server, response *Response, r *Request)
 
 type Server struct {
 	registry map[string] map[string] HandlerFunc
+	matcher  Matcher
 }
 
 func (server *Server) routerHandlerFactory (path string) http.HandlerFunc {
@@ -54,13 +55,15 @@ func (server *Server) routerHandlerFactory (path string) http.HandlerFunc {
 }
 
 func (server *Server) registerRoute (path string, methods *RouteMethods, handler HandlerFunc) {
-	if server.registry[path] == nil {
-		server.registry[path] = make(map[string] HandlerFunc, 0)
+	patternId := server.matcher.RegisterPattern(path)
+	// fmt.Println(patternId, path)
+	if server.registry[patternId] == nil {
+		server.registry[patternId] = make(map[string] HandlerFunc, 0)
 		// Registers function handler for path in go's http server.
 		http.HandleFunc(path, server.routerHandlerFactory(path))
 	}
 
-	routes := server.registry[path]
+	routes := server.registry[patternId]
 
 	reflection := reflect.Indirect(reflect.ValueOf(methods))
 	typeOfS := reflection.Type()
@@ -99,6 +102,10 @@ func (server *Server) Serve (address string) {
 }
 
 func NewServer () (Server) {
-	server := Server{registry: make(map[string] map[string] HandlerFunc, 0)}
+	server := Server{
+		registry: make(map[string] map[string] HandlerFunc, 0),
+		matcher: Matcher{},
+	}
+
 	return server
 }

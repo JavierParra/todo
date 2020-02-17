@@ -30,3 +30,11 @@ func (response *Response) SendWithStatus(body interface{}, status int) {
 	writer.WriteHeader(status)
 	writer.Write(resp)
 }
+
+func (response *Response) SendInternalError(err error) {
+	response.SendWithStatus(ApiError{
+		"INTERNAL",
+		"Internal Server Error",
+		struct { Error string `json:"error"` } { err.Error() },
+	}, http.StatusInternalServerError)
+}

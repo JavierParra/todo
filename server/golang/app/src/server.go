@@ -2,87 +2,29 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"time"
-
-	"github.com/nu7hatch/gouuid"
-
-	// "time"
 	"encoding/json"
-	"errors"
+
+	"server/todo"
 	"server/apiServer"
 )
 
-type Todo struct {
-	Id        string `json:"id"`
-	Complete  bool   `json:"complete"`
-	Name      string `json:"name"`
-	Created   int64  `json:"created"`
-	Completed int64  `json:"completed"`
-	Notes     string `json:"notes"`
-}
-
-type Store struct {
-	Collection map[string]*Todo
-}
-
-func keys (col map[string]*Todo) []string {
-	var i int = 0
-	keys := make([]string, len(col))
-
-	for k := range col {
-		keys[i] = k
-		i += 1
-	}
-
-	return keys
-}
-
-func values (col map[string]*Todo) []*Todo {
-	var i int = 0
-	keys := make([]*Todo, len(col))
-
-	for _, v := range col {
-		keys[i] = v
-		i += 1
-	}
-
-	return keys
-}
-
-var collection = &Store{Collection: make(map[string]*Todo)}
-
-func (store *Store) add (todo *Todo, idChan chan string, errorChan chan error) {
-	uid, err := uuid.NewV4()
-	id := uid.String()
-
-	if err != nil {
-		errorChan <- err
-	}
-
-	if rand.Int() % 23 == 0 {
-		errorChan <- errors.New("Random error happened")
-	}
-
-	todo.Id = id
-
-	store.Collection[id] = todo
-	idChan <- id
-}
+type ApiError = apiServer.ApiError
+var collection = todo.GetStore()
 
 func handler(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
 	type List struct {
-		Result []*Todo `json:"todos"`
+		Result []*todo.Todo `json:"todos"`
 	}
 
-	result := List{values(collection.Collection)}
+	result := List{todo.Values(collection.Collection)}
 
 	response.Send(result)
 }
 
 func create(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
-	var todo Todo
+	var todo todo.Todo
 	err := request.ReadInto(&todo)
 
 	if (request.Method() != http.MethodPost) {
@@ -105,7 +47,7 @@ func create(server *apiServer.Server, response *apiServer.Response, request *api
 	idChan := make(chan string)
 	errorChan := make(chan error)
 
-	go collection.add(&todo, idChan, errorChan)
+	go collection.Add(&todo, idChan, errorChan)
 
 	select {
 		case <- idChan:
@@ -115,9 +57,18 @@ func create(server *apiServer.Server, response *apiServer.Response, request *api
 	}
 }
 
-type ApiError = apiServer.ApiError
+func get(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
+	val, err := request.Read()
 
-func sendTodo(writer http.ResponseWriter, todo *Todo) {
+	if err != nil {
+		response.SendInternalError(err)
+		return
+	}
+
+	fmt.Println(val)
+}
+
+func sendTodo(writer http.ResponseWriter, todo *todo.Todo) {
 	body, err := json.Marshal(todo)
 	status := http.StatusOK
 
@@ -150,5 +101,7 @@ func main() {
 	server := apiServer.NewServer()
 	server.Route("/todos", &apiServer.RouteMethods{POST: true}, create)
 	server.Route("/todos", &apiServer.RouteMethods{GET: true}, handler)
+	server.Route("/todos/:id", &apiServer.RouteMethods{GET: true}, handler)
+	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)/sortby/:sort([a-z])", &apiServer.RouteMethods{GET: true}, handler)
 	server.Serve(address)
 }
