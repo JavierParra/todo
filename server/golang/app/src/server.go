@@ -50,7 +50,7 @@ func create(server *apiServer.Server, response *apiServer.Response, request *api
 
 	select {
 		case <- idChan:
-			response.Send(&todo)
+			response.SendWithStatus(&todo, http.StatusCreated)
 		case err := <- errorChan:
 			response.SendWithStatus(&ApiError{Error: "ERROR_RANDOM", Message: err.Error()}, 503)
 	}
@@ -73,11 +73,35 @@ func get(server *apiServer.Server, response *apiServer.Response, request *apiSer
 	response.Send(todo)
 }
 
+
+func deleteTodo(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
+	matches := request.GetMatches()
+	id := matches["id"]
+	todo := collection.Get(id)
+
+	if todo == nil {
+		response.SendWithStatus(&apiServer.ApiError{
+			"NOT_FOUND",
+			"The requested document was not found",
+			struct{ Id string `json"id"`}{ id },
+		}, http.StatusNotFound)
+		return
+	}
+
+	collection.Delete(id)
+
+	response.Send(struct{
+		Id      string `json"id"`
+		Deleted bool   `json"deleted"`
+	} { id, true })
+}
+
 func main() {
 	address := "0.0.0.0:8000"
 	server := apiServer.NewServer()
 	server.Route("/todos", &apiServer.RouteMethods{POST: true}, create)
 	server.Route("/todos", &apiServer.RouteMethods{GET: true}, handler)
 	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)", &apiServer.RouteMethods{GET: true}, get)
+	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)", &apiServer.RouteMethods{DELETE: true}, deleteTodo)
 	server.Serve(address)
 }

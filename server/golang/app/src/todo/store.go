@@ -56,6 +56,10 @@ func (store *Store) Get (id string) *Todo {
 	return store.Collection[id]
 }
 
+func (store *Store) Delete (id string) {
+	delete(store.Collection, id)
+}
+
 func GetStore() *Store {
 	return &Store{Collection: make(map[string]*Todo)}
 }
