@@ -96,12 +96,44 @@ func deleteTodo(server *apiServer.Server, response *apiServer.Response, request 
 	} { id, true })
 }
 
+func updateTodo(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
+	matches := request.GetMatches()
+	id := matches["id"]
+	todo := collection.Get(id)
+
+	if todo == nil {
+		response.SendWithStatus(&apiServer.ApiError{
+			"NOT_FOUND",
+			"The requested document was not found",
+			struct{ Id string `json"id"`}{ id },
+		}, http.StatusNotFound)
+		return
+	}
+
+	err := request.ReadInto(&todo)
+
+	if err != nil {
+		fmt.Println(err)
+		response.SendWithStatus(&ApiError{Error: "VALIDATION_ERROR", Message: err.Error()}, http.StatusBadRequest)
+		return
+	}
+
+	// todo.Name = "XXX"
+
+	response.Send(todo)
+}
+
 func main() {
 	address := "0.0.0.0:8000"
+	listPath := "/todos"
+	singlePath := "/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)"
+
 	server := apiServer.NewServer()
-	server.Route("/todos", &apiServer.RouteMethods{POST: true}, create)
-	server.Route("/todos", &apiServer.RouteMethods{GET: true}, handler)
-	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)", &apiServer.RouteMethods{GET: true}, get)
-	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)", &apiServer.RouteMethods{DELETE: true}, deleteTodo)
+	server.Route(listPath, &apiServer.RouteMethods{POST: true}, create)
+	server.Route(listPath, &apiServer.RouteMethods{GET: true}, handler)
+	server.Route(singlePath, &apiServer.RouteMethods{GET: true}, get)
+	server.Route(singlePath, &apiServer.RouteMethods{DELETE: true}, deleteTodo)
+	server.Route(singlePath, &apiServer.RouteMethods{PATCH: true}, updateTodo)
+
 	server.Serve(address)
 }
