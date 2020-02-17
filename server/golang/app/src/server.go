@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	"encoding/json"
 
 	"server/todo"
 	"server/apiServer"
@@ -58,42 +57,20 @@ func create(server *apiServer.Server, response *apiServer.Response, request *api
 }
 
 func get(server *apiServer.Server, response *apiServer.Response, request *apiServer.Request) {
-	val, err := request.Read()
+	matches := request.GetMatches()
+	id := matches["id"]
+	todo := collection.Get(id)
 
-	if err != nil {
-		response.SendInternalError(err)
+	if todo == nil {
+		response.SendWithStatus(&apiServer.ApiError{
+			"NOT_FOUND",
+			"The requested document was not found",
+			struct{ Id string `json"id"`}{ id },
+		}, http.StatusNotFound)
 		return
 	}
 
-	fmt.Println(val)
-}
-
-func sendTodo(writer http.ResponseWriter, todo *todo.Todo) {
-	body, err := json.Marshal(todo)
-	status := http.StatusOK
-
-	if err != nil {
-		fmt.Println("Unable to format json", err)
-		status = http.StatusPartialContent
-		body = []byte(`{}`)
-	}
-
-	writer.Header().Add("Content-type", "application/json")
-	writer.WriteHeader(status)
-	writer.Write(body)
-}
-
-func sendError(writer http.ResponseWriter, status int, error ApiError) {
-	body, err := json.Marshal(error)
-
-	if err != nil {
-		fmt.Println("Unable to format json", err)
-		body = []byte(`{}`)
-	}
-
-	writer.Header().Add("Content-type", "application/json")
-	writer.WriteHeader(status)
-	writer.Write(body)
+	response.Send(todo)
 }
 
 func main() {
@@ -101,7 +78,6 @@ func main() {
 	server := apiServer.NewServer()
 	server.Route("/todos", &apiServer.RouteMethods{POST: true}, create)
 	server.Route("/todos", &apiServer.RouteMethods{GET: true}, handler)
-	server.Route("/todos/:id", &apiServer.RouteMethods{GET: true}, handler)
-	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)/sortby/:sort([a-z])", &apiServer.RouteMethods{GET: true}, handler)
+	server.Route("/todos/:id([a-f0-9\\-]+-[a-f0-9\\-]+)", &apiServer.RouteMethods{GET: true}, get)
 	server.Serve(address)
 }

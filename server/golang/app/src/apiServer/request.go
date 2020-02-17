@@ -3,6 +3,7 @@ package apiServer
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"io/ioutil"
 	"net/http"
 )
@@ -13,6 +14,7 @@ type Request struct {
 	body    interface{}
 	rawBody []byte
 	bodyErr error
+	matches map[string] string
 }
 
 // Read the body of a request once and returns it whenever it's called.
@@ -48,6 +50,18 @@ func (request *Request) ReadInto(v interface{}) error {
 	}
 
 	return json.Unmarshal(request.rawBody, &v)
+}
+
+func (request *Request) GetMatches() map[string] string {
+	return request.matches
+}
+
+func (request *Request) setMatches(matches map[string] string) {
+	if request.matches != nil {
+		log.Fatal("Trying to set matches more than once")
+	}
+
+	request.matches = matches
 }
 
 func (request *Request) Method () string {

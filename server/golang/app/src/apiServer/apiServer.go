@@ -34,24 +34,35 @@ type Server struct {
 	matcher  Matcher
 }
 
-func (server *Server) routerHandlerFactory (path string) http.HandlerFunc {
-	return func (writer http.ResponseWriter, req *http.Request) {
-		method := req.Method
-		handler := server.registry[path][method]
-		response := Response{ writer: writer }
-		request := Request{ request: req }
+func (server *Server) routerHandler (writer http.ResponseWriter, req *http.Request) {
+	method := req.Method
+	path := req.URL.Path
+	patternId, matches := server.matcher.Match(path)
+	response := Response{ writer: writer }
+	request := Request{ request: req }
 
-		if handler == nil {
-			response.SendWithStatus(&ApiError{
-				"BAD_METHOD",
-				fmt.Sprintf("Method %s not allowed", method),
-				struct{ Method string `json:"method"` }{ method },
-			}, http.StatusMethodNotAllowed)
-			return
-		}
-
-		handler(server, &response, &request)
+	if patternId == "" {
+		response.SendWithStatus(&ApiError{
+			Error: "NOT_FOUND",
+			Message: fmt.Sprintf("Page '%s' not found", path),
+		}, http.StatusNotFound)
+		return
 	}
+
+	request.setMatches(matches)
+
+	handler := server.registry[patternId][method]
+
+	if handler == nil {
+		response.SendWithStatus(&ApiError{
+			"BAD_METHOD",
+			fmt.Sprintf("Method %s not allowed", method),
+			struct{ Method string `json:"method"` }{ method },
+		}, http.StatusMethodNotAllowed)
+		return
+	}
+
+	handler(server, &response, &request)
 }
 
 func (server *Server) registerRoute (path string, methods *RouteMethods, handler HandlerFunc) {
@@ -59,8 +70,6 @@ func (server *Server) registerRoute (path string, methods *RouteMethods, handler
 	// fmt.Println(patternId, path)
 	if server.registry[patternId] == nil {
 		server.registry[patternId] = make(map[string] HandlerFunc, 0)
-		// Registers function handler for path in go's http server.
-		http.HandleFunc(path, server.routerHandlerFactory(path))
 	}
 
 	routes := server.registry[patternId]
@@ -98,6 +107,8 @@ func (server *Server) RouteAll (path string, handler HandlerFunc) bool {
 
 func (server *Server) Serve (address string) {
 	fmt.Println("Servng in", address)
+	// Registers function handler for path in go's http server.
+	http.HandleFunc("/", server.routerHandler)
 	log.Fatal(http.ListenAndServe(address, nil))
 }
 

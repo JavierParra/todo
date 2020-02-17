@@ -3,7 +3,7 @@ package apiServer
 import (
 	"strings"
 	"regexp"
-	// "fmt"
+	"fmt"
 	"strconv"
 )
 
@@ -27,8 +27,29 @@ type Pattern struct {
 	groups []string
 }
 
-func (matcher *Matcher) Match(path string) {
+func (matcher *Matcher) Match(path string) (string, map[string] string) {
+	for id, pattern := range matcher.patterns {
+		re := pattern.reg
 
+		match := re.FindStringSubmatch(path)
+
+		if len(match) > 0 {
+			fmt.Println(re, match, len(match))
+			return strconv.FormatInt(int64(id), 16), fillMatches(&pattern, match)
+		}
+	}
+
+	return "", make(map[string] string, 0)
+}
+
+func fillMatches(pattern *Pattern, match []string) map[string] string {
+	matches := make(map[string] string, 0)
+
+	for i, key := range pattern.groups {
+		matches[key] = match[i+1]
+	}
+
+	return matches
 }
 
 // RegisterPattern registers a pattern with the matcher and returns an
@@ -62,6 +83,10 @@ func compile (pattern string, matches [][]int) Pattern {
 	parts := []string{"^"}
 	keys := make([]string, 0)
 
+	if len(matches) == 0 {
+		parts = append(parts, regexp.QuoteMeta(pattern))
+	}
+
 	for len(matches) > 0 {
 		match, matches = matches[0], matches[1:]
 		var reg string
@@ -85,5 +110,6 @@ func compile (pattern string, matches [][]int) Pattern {
 
 	parts = append(parts, "$")
 
+	fmt.Println("registering", strings.Join(parts, ""))
 	return Pattern{regexp.MustCompile(strings.Join(parts, "")), keys}
 }
