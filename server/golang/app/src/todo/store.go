@@ -7,10 +7,10 @@ import (
 )
 
 type Store struct {
-	Collection map[string]*Todo
+	Collection map[string]Todo
 }
 
-func Keys (col map[string]*Todo) []string {
+func Keys (col map[string]Todo) []string {
 	var i int = 0
 	keys := make([]string, len(col))
 
@@ -22,16 +22,16 @@ func Keys (col map[string]*Todo) []string {
 	return keys
 }
 
-func Values (col map[string]*Todo) []*Todo {
+func Values (col map[string]Todo) []*Todo {
 	var i int = 0
-	keys := make([]*Todo, len(col))
+	values := make([]*Todo, len(col))
 
 	for _, v := range col {
-		keys[i] = v
+		values[i] = &v
 		i += 1
 	}
 
-	return keys
+	return values
 }
 
 func (store *Store) Add (todo *Todo, idChan chan string, errorChan chan error) {
@@ -48,11 +48,16 @@ func (store *Store) Add (todo *Todo, idChan chan string, errorChan chan error) {
 
 	todo.Id = id
 
-	store.Collection[id] = todo
+	store.Collection[id] = *todo
 	idChan <- id
 }
 
-func (store *Store) Get (id string) *Todo {
+func (store *Store) Replace (id string, todo Todo) Todo {
+	store.Collection[id] = todo
+	return todo
+}
+
+func (store *Store) Get (id string) Todo {
 	return store.Collection[id]
 }
 
@@ -61,5 +66,5 @@ func (store *Store) Delete (id string) {
 }
 
 func GetStore() *Store {
-	return &Store{Collection: make(map[string]*Todo)}
+	return &Store{Collection: make(map[string]Todo)}
 }

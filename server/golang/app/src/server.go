@@ -61,7 +61,7 @@ func get(server *apiServer.Server, response *apiServer.Response, request *apiSer
 	id := matches["id"]
 	todo := collection.Get(id)
 
-	if todo == nil {
+	if todo.Id == "" {
 		response.SendWithStatus(&apiServer.ApiError{
 			"NOT_FOUND",
 			"The requested document was not found",
@@ -79,7 +79,7 @@ func deleteTodo(server *apiServer.Server, response *apiServer.Response, request 
 	id := matches["id"]
 	todo := collection.Get(id)
 
-	if todo == nil {
+	if todo.Id == "" {
 		response.SendWithStatus(&apiServer.ApiError{
 			"NOT_FOUND",
 			"The requested document was not found",
@@ -101,7 +101,7 @@ func updateTodo(server *apiServer.Server, response *apiServer.Response, request 
 	id := matches["id"]
 	todo := collection.Get(id)
 
-	if todo == nil {
+	if todo.Id == "" {
 		response.SendWithStatus(&apiServer.ApiError{
 			"NOT_FOUND",
 			"The requested document was not found",
@@ -118,7 +118,7 @@ func updateTodo(server *apiServer.Server, response *apiServer.Response, request 
 		return
 	}
 
-	// todo.Name = "XXX"
+	collection.Replace(id, todo)
 
 	response.Send(todo)
 }
